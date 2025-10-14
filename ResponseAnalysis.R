@@ -147,7 +147,7 @@ ClonalAnalysis <- R6Class(
       
       ## Canonical long-format table
       long_tbl <- private$..results_internal(mode, delta, alpha, aggregate,
-                                              intercept_zero = intercept_zero)
+                                             intercept_zero = intercept_zero)
       
       ## 1) Developer view
       if (isTRUE(enable.dev)) {
@@ -187,25 +187,22 @@ ClonalAnalysis <- R6Class(
       metric_map <- c(
         
         dR_glmnet_resid   = 'cGR',
-      
+        
         R                 = "growth_rate",
         dR                = "centered_growth_rate",
         growth_difference = "growth_difference",
         FC                = "FC",
         
-      
+        
         R_ctrl            = "growth_rate_control",
         dR_ctrl           = "centered_growth_rate_control",
-       
-   
+        
+        
         p_value_pair           = "p_value",
         fr          = "fraction",
         fr_ctrl           = "fraction_control",
         fr_t0             = "fraction_t0",
 
-        
-        
-       
         dR_glmnet_fit ="dR_glmnet_fit"
       )
       ##
@@ -264,7 +261,7 @@ ClonalAnalysis <- R6Class(
     }
   ),
   
-
+  
   
   
   ############################################################## 
@@ -574,7 +571,7 @@ ClonalAnalysis <- R6Class(
         dplyr::left_join(p_tbl,  by = c("lineage", "condition"))
     },
     
-
+    
     ..results_internal = function(mode, delta, alpha, aggregate, intercept_zero = TRUE) {
       # Bring modelling data and attach counts/fractions (columns added to `md`)
       md <- self$modelling_data
@@ -638,12 +635,12 @@ ClonalAnalysis <- R6Class(
           SR_delta          = growth_difference /
             (abs(current_R) + abs(R_ctrl) + 2 * delta),
           SLR_alpha         = asinh(current_R / alpha) - asinh(R_ctrl / alpha),
-          cGR               = growth_difference / (abs(R_ctrl) + delta),
+          proportional               = growth_difference / (abs(R_ctrl) + delta),
           R_ctrl            = R_ctrl,
           dR_ctrl           = dR_ctrl,
           fr_ctrl           = fr_ctrl
         )
-
+      
       ## -------- GLMNET residualization on dR BEFORE aggregation (per replicate) ----
       ## Constrained lasso: slope(dR_ctrl) >= 0; dummy locked at 0.
       ## Optional zero-intercept via `intercept_zero` (default TRUE).
@@ -678,7 +675,7 @@ ClonalAnalysis <- R6Class(
             X_all <- cbind(dR_ctrl = xc, dummy = 0 * xc)
             yhat  <- as.numeric(stats::predict(cvfit, newx = X_all, s = "lambda.min"))
             df$dR_glmnet_fit   <- yhat
-            df$dR_glmnet_resid <- yy - yhat
+            df$dR_glmnet_resid <- yhat - yy
           }
           df
         }) %>%
@@ -696,7 +693,7 @@ ClonalAnalysis <- R6Class(
             FC                = mean(FC),
             SR_delta          = mean(SR_delta,  na.rm = TRUE),
             SLR_alpha         = mean(SLR_alpha, na.rm = TRUE),
-            cGR               = mean(cGR,       na.rm = TRUE),
+            proportional               = mean(proportional,       na.rm = TRUE),
             counts            = mean(counts),
             fr                = mean(fr),
             fr_ctrl           = mean(fr_ctrl,   na.rm = TRUE),
@@ -715,7 +712,7 @@ ClonalAnalysis <- R6Class(
           lineage, rep, condition, treatment,
           dR  = current_dR,
           R   = current_R,
-          growth_difference, FC, SR_delta, SLR_alpha, cGR,
+          growth_difference, FC, SR_delta, SLR_alpha, proportional,
           counts, fr, fr_ctrl, fr_t0, dR_ctrl, R_ctrl, p_value_pair,
           dR_glmnet_fit, dR_glmnet_resid
         )
