@@ -127,138 +127,161 @@ ClonalAnalysis <- R6Class(
       }
     },
     
-    ## ── PUBLIC results() ────────────────────────────────────────────────
-    results = function(mode        = "model",
-                       delta       = NULL,
-                       alpha       = NULL,
-                       aggregate   = TRUE,
-                       format      = c("long", "list"),
-                       enable.dev  = FALSE, intercept_zero=TRUE) {
-      
-      if (is.null(self$model))
-        stop("fit_model() has not been run.")
-      
-      mode   <- match.arg(mode, c("model", "all", "raw"))
-      format <- match.arg(format)
-      
-      ## guard: users can only request mode = "model" unless enable.dev
-      if (!isTRUE(enable.dev) && mode != "model")
-        stop('When enable.dev = FALSE, only mode = "model" is allowed.')
-      
-      ## Canonical long-format table
-      long_tbl <- private$..results_internal(mode, delta, alpha, aggregate,
-                                             intercept_zero = intercept_zero)
-      
-      ## 1) Developer view
-      if (isTRUE(enable.dev)) {
-        if (format == "long") return(long_tbl)
-        
-        unique_map <- long_tbl %>%
-          dplyr::distinct(condition, treatment) %>%
-          dplyr::add_count(treatment, name = "n_by_trt") %>%
-          dplyr::filter(n_by_trt == 1) %>%
-          dplyr::pull(condition, name = treatment)
-        
-        long_tbl2 <- long_tbl %>%
-          dplyr::mutate(
-            cond_label = ifelse(condition %in% unique_map, treatment, condition)
-          )
-        
-        metric_cols <- setdiff(
-          names(long_tbl2),
-          c("lineage", "rep", "condition", "cond_label", "treatment")
-        )
-        
-        out <- purrr::map(metric_cols, \(m)
-                          long_tbl2 %>%
-                            dplyr::select(lineage, cond_label, !!rlang::sym(m)) %>%
-                            tidyr::pivot_wider(
-                              names_from  = cond_label,
-                              values_from = !!rlang::sym(m)
-                            ) %>%
-                            tibble::column_to_rownames("lineage") %>%
-                            as.data.frame()
-        )
-        names(out) <- metric_cols
-        return(out)
-      }
-      
-      ## User view 
-      metric_map <- c(
-        
-        dR_glmnet_resid   = 'cGR',
-        
-        R                 = "growth_rate",
-        dR                = "centered_growth_rate",
-        growth_difference = "growth_difference",
-        FC                = "FC",
-        
-        
-        R_ctrl            = "growth_rate_control",
-        dR_ctrl           = "centered_growth_rate_control",
-        
-        
-        p_value_pair           = "p_value",
-        fr          = "fraction",
-        fr_ctrl           = "fraction_control",
-        fr_t0             = "fraction_t0",
-
-        dR_glmnet_fit ="dR_glmnet_fit"
+## ── PUBLIC results() ────────────────────────────────────────────────
+results = function(mode                    = "model",
+                   delta                   = NULL,
+                   alpha                   = NULL,
+                   aggregate               = TRUE,
+                   format                  = c("long", "list"),
+                   enable.dev              = FALSE,
+                   intercept_zero          = TRUE,
+                   include_raw_versions    = FALSE  # <- NEW: also output raw metrics to user
+) {
+  if (is.null(self$model))
+    stop("fit_model() has not been run.")
+  
+  mode   <- match.arg(mode, c("model", "all", "raw"))
+  format <- match.arg(format)
+  
+  ## guard: users can only request mode = "model" unless enable.dev
+  if (!isTRUE(enable.dev) && mode != "model")
+    stop('When enable.dev = FALSE, only mode = "model" is allowed.')
+  
+  ## If the user wants raw companions, internally build the combined table
+  internal_mode <- if (isTRUE(include_raw_versions)) "all" else mode
+  
+  ## Canonical long-format table
+  long_tbl <- private$..results_internal(
+    internal_mode, delta, alpha, aggregate, intercept_zero = intercept_zero
+  )
+  
+  ## 1) Developer view (unchanged)
+  if (isTRUE(enable.dev)) {
+    if (format == "long") return(long_tbl)
+    
+    unique_map <- long_tbl %>%
+      dplyr::distinct(condition, treatment) %>%
+      dplyr::add_count(treatment, name = "n_by_trt") %>%
+      dplyr::filter(n_by_trt == 1) %>%
+      dplyr::pull(condition, name = treatment)
+    
+    long_tbl2 <- long_tbl %>%
+      dplyr::mutate(
+        cond_label = ifelse(condition %in% unique_map, treatment, condition)
       )
-      ##
-      if (format == "long") {
-        core_cols    <- intersect(
-          c("lineage", "condition", "treatment", "rep"),
-          names(long_tbl)
-        )
-        keep_metrics <- intersect(names(metric_map), names(long_tbl))
-        
-        result_main <- long_tbl %>%
-          dplyr::select(dplyr::all_of(c(core_cols, keep_metrics))) %>%
-          dplyr::rename_with(~ metric_map[.x], .cols = keep_metrics)
-        
-      } else {  # format == "list"
-        
-        unique_map <- long_tbl %>%
-          dplyr::distinct(condition, treatment) %>%
-          dplyr::add_count(treatment, name = "n_by_trt") %>%
-          dplyr::filter(n_by_trt == 1) %>%
-          dplyr::pull(condition, name = treatment)
-        
-        long_tbl2 <- long_tbl %>%
-          dplyr::mutate(
-            cond_label = ifelse(condition %in% unique_map, treatment, condition)
-          )
-        
-        metric_cols <- setdiff(
-          names(long_tbl2),
-          c("lineage", "rep", "condition", "cond_label", "treatment")
-        )
-        
-        tmp <- purrr::map(metric_cols, \(m)
-                          long_tbl2 %>%
-                            dplyr::select(lineage, cond_label, !!rlang::sym(m)) %>%
-                            tidyr::pivot_wider(
-                              names_from  = cond_label,
-                              values_from = !!rlang::sym(m)
-                            ) %>%
-                            tibble::column_to_rownames("lineage") %>%
-                            as.data.frame()
-        )
-        names(tmp) <- metric_cols
-        
-        keep_metrics <- intersect(names(metric_map), names(tmp))
-        result_main  <- tmp[keep_metrics]
-        names(result_main) <- metric_map[keep_metrics]
-      }
-      
-      
-      list(
-        result        = result_main,
-        analysis_info = self$analysis_info,
-        last_meta     = self$last_meta
+    
+    metric_cols <- setdiff(
+      names(long_tbl2),
+      c("lineage", "rep", "condition", "cond_label", "treatment")
+    )
+    
+    out <- purrr::map(metric_cols, \(m)
+      long_tbl2 %>%
+        dplyr::select(lineage, cond_label, !!rlang::sym(m)) %>%
+        tidyr::pivot_wider(
+          names_from  = cond_label,
+          values_from = !!rlang::sym(m)
+        ) %>%
+        tibble::column_to_rownames("lineage") %>%
+        as.data.frame()
+    )
+    names(out) <- metric_cols
+    return(out)
+  }
+  
+  ## 2) User view
+  ## Base mapping (predicted or raw depending on internal_mode)
+  if (isTRUE(include_raw_versions)) {
+    ## When we built with internal_mode = "all", columns come with *_pred / *_raw
+    metric_map <- c(
+      ## primary (predicted/model) fields
+      dR_glmnet_resid_pred = "cGR",
+      R_pred               = "growth_rate",
+      dR_pred              = "centered_growth_rate",
+      R_ctrl_pred          = "growth_rate_control",
+      dR_ctrl_pred         = "centered_growth_rate_control",
+      ## requested raw companions
+      R_raw                = "growth_rate_raw",
+      dR_raw               = "centered_growth_rate_raw",
+      R_ctrl_raw           = "growth_rate_control_raw",
+      dR_ctrl_raw          = "centered_growth_rate_control_raw",
+      ## other useful fields
+      p_value_pair         = "p_value",
+      fr                   = "fraction",
+      fr_ctrl              = "fraction_control",
+      fr_t0                = "fraction_t0",
+      dR_glmnet_fit_pred   = "dR_glmnet_fit"
+    )
+  } else {
+    ## Legacy mapping (unchanged behavior)
+    metric_map <- c(
+      dR_glmnet_resid   = "cGR",
+      R                 = "growth_rate",
+      dR                = "centered_growth_rate",
+      growth_difference = "growth_difference",
+      FC                = "FC",
+      R_ctrl            = "growth_rate_control",
+      dR_ctrl           = "centered_growth_rate_control",
+      p_value_pair      = "p_value",
+      fr                = "fraction",
+      fr_ctrl           = "fraction_control",
+      fr_t0             = "fraction_t0",
+      dR_glmnet_fit     = "dR_glmnet_fit"
+    )
+  }
+  
+  if (format == "long") {
+    core_cols    <- intersect(
+      c("lineage", "condition", "treatment", "rep"),
+      names(long_tbl)
+    )
+    keep_metrics <- intersect(names(metric_map), names(long_tbl))
+    
+    result_main <- long_tbl %>%
+      dplyr::select(dplyr::all_of(c(core_cols, keep_metrics))) %>%
+      dplyr::rename_with(~ metric_map[.x], .cols = keep_metrics)
+    
+  } else {  # format == "list"
+    
+    unique_map <- long_tbl %>%
+      dplyr::distinct(condition, treatment) %>%
+      dplyr::add_count(treatment, name = "n_by_trt") %>%
+      dplyr::filter(n_by_trt == 1) %>%
+      dplyr::pull(condition, name = treatment)
+    
+    long_tbl2 <- long_tbl %>%
+      dplyr::mutate(
+        cond_label = ifelse(condition %in% unique_map, treatment, condition)
       )
-    }
+    
+    metric_cols <- setdiff(
+      names(long_tbl2),
+      c("lineage", "rep", "condition", "cond_label", "treatment")
+    )
+    
+    tmp <- purrr::map(metric_cols, \(m)
+      long_tbl2 %>%
+        dplyr::select(lineage, cond_label, !!rlang::sym(m)) %>%
+        tidyr::pivot_wider(
+          names_from  = cond_label,
+          values_from = !!rlang::sym(m)
+        ) %>%
+        tibble::column_to_rownames("lineage") %>%
+        as.data.frame()
+    )
+    names(tmp) <- metric_cols
+    
+    keep_metrics <- intersect(names(metric_map), names(tmp))
+    result_main  <- tmp[keep_metrics]
+    names(result_main) <- metric_map[keep_metrics]
+  }
+  
+  list(
+    result        = result_main,
+    analysis_info = self$analysis_info,
+    last_meta     = self$last_meta
+  )
+}
   ),
   
   
