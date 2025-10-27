@@ -136,6 +136,7 @@ results = function(mode                    = "model",
                    enable.dev              = FALSE,
                    intercept_zero          = TRUE,
                    include_raw_versions    = FALSE) {
+
   if (is.null(self$model)) stop("fit_model() has not been run.")
   mode   <- match.arg(mode, c("model", "all", "raw"))
   format <- match.arg(format)
@@ -149,6 +150,7 @@ results = function(mode                    = "model",
     internal_mode, delta, alpha, aggregate, intercept_zero = intercept_zero
   )
 
+  ## ---- Developer view: unchanged, returns EVERYTHING by request
   if (isTRUE(enable.dev)) {
     if (format == "long") return(long_tbl)
 
@@ -180,9 +182,10 @@ results = function(mode                    = "model",
     return(out)
   }
 
+  ## ---- User view: strictly whitelist metrics
   if (isTRUE(include_raw_versions)) {
     metric_map <- c(
-      ## model (pred) — shown under the usual names
+      ## model (pred) — user-friendly names
       dR_glmnet_resid_pred = "cGR",
       R_pred               = "growth_rate",
       dR_pred              = "centered_growth_rate",
@@ -192,6 +195,7 @@ results = function(mode                    = "model",
       fr_ctrl_pred         = "fraction_control",
       fr_t0_pred           = "fraction_t0",
       dR_glmnet_fit_pred   = "dR_glmnet_fit",
+      p_value_pair_pred    = "p_value",
       ## raw companions
       R_raw                = "growth_rate_raw",
       dR_raw               = "centered_growth_rate_raw",
@@ -200,17 +204,7 @@ results = function(mode                    = "model",
       fr_raw               = "fraction_raw",
       fr_ctrl_raw          = "fraction_control_raw",
       fr_t0_raw            = "fraction_t0_raw",
-      ## keep these if they appear with suffixes in "all" mode
-      growth_difference_pred = "growth_difference",
-      FC_pred                = "FC",
-      SR_delta_pred          = "SR_delta",
-      SLR_alpha_pred         = "SLR_alpha",
-      proportional_pred      = "proportional",
-      growth_difference_raw  = "growth_difference_raw",
-      FC_raw                 = "FC_raw",
-      SR_delta_raw           = "SR_delta_raw",
-      SLR_alpha_raw          = "SLR_alpha_raw",
-      proportional_raw       = "proportional_raw"
+      p_value_pair_raw     = "p_value_raw"
     )
   } else {
     metric_map <- c(
@@ -229,30 +223,31 @@ results = function(mode                    = "model",
     )
   }
 
-  if (format == "long") {
-    core_cols    <- intersect(
-      c("lineage", "condition", "treatment", "rep"),
-      names(long_tbl)
-    )
-    keep_metrics <- intersect(names(metric_map), names(long_tbl))
+  core_cols <- intersect(c("lineage","condition","treatment","rep"), names(long_tbl))
+  keep_metrics <- intersect(names(metric_map), names(long_tbl))
 
-    result_main <- long_tbl %>%
-      dplyr::select(dplyr::all_of(c(core_cols, keep_metrics))) %>%
+  ## HARD FILTER here so no dev columns can leak into user view
+  long_user <- long_tbl %>%
+    dplyr::select(dplyr::all_of(core_cols), dplyr::any_of(keep_metrics))
+
+  if (format == "long") {
+    result_main <- long_user %>%
       dplyr::rename_with(~ metric_map[.x], .cols = keep_metrics)
 
   } else {  # format == "list"
-    unique_map <- long_tbl %>%
+    unique_map <- long_user %>%
       dplyr::distinct(condition, treatment) %>%
       dplyr::add_count(treatment, name = "n_by_trt") %>%
       dplyr::filter(n_by_trt == 1) %>%
       dplyr::pull(condition, name = treatment)
 
-    long_tbl2 <- long_tbl %>%
+    long_tbl2 <- long_user %>%
       dplyr::mutate(cond_label = ifelse(condition %in% unique_map, treatment, condition))
 
-    metric_cols <- setdiff(
-      names(long_tbl2),
-      c("lineage", "rep", "condition", "cond_label", "treatment")
+    metric_cols <- intersect(
+      setdiff(names(long_tbl2),
+              c("lineage","rep","condition","cond_label","treatment")),
+      keep_metrics
     )
 
     tmp <- purrr::map(metric_cols, \(m)
@@ -267,9 +262,8 @@ results = function(mode                    = "model",
     )
     names(tmp) <- metric_cols
 
-    keep_metrics <- intersect(names(metric_map), names(tmp))
-    result_main  <- tmp[keep_metrics]
-    names(result_main) <- metric_map[keep_metrics]
+    result_main <- tmp
+    names(result_main) <- metric_map[metric_cols]
   }
 
   list(
