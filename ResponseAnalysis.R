@@ -449,8 +449,9 @@ results = function(mode        = "model",
       total_counts <- colSums(counts[, metadata$sample_name])
       cnt_pc  <- counts[, metadata$sample_name]
       col_specific_pseudo <- min_except_zero_per_col(cnt_pc)
-      cnt_pc[cnt_pc == 0] <- rep(as.vector(unlist(col_specific_pseudo)),
-                                 each = nrow(cnt_pc))[cnt_pc == 0]
+      #cnt_pc[cnt_pc == 0] <- rep(as.vector(unlist(col_specific_pseudo)),
+       #                          each = nrow(cnt_pc))[cnt_pc == 0]
+      cnt_pc <- cnt_pc + min(col_specific_pseudo)/2
       
       fr <- sweep(cnt_pc, 2, total_counts, "/")
       fr[matrixStats::rowMaxs(fr) > thr, , drop = FALSE]
