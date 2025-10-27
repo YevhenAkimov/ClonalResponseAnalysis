@@ -135,46 +135,37 @@ results = function(mode                    = "model",
                    format                  = c("long", "list"),
                    enable.dev              = FALSE,
                    intercept_zero          = TRUE,
-                   include_raw_versions    = FALSE  # <- NEW: also output raw metrics to user
-) {
-  if (is.null(self$model))
-    stop("fit_model() has not been run.")
-  
+                   include_raw_versions    = FALSE) {
+  if (is.null(self$model)) stop("fit_model() has not been run.")
   mode   <- match.arg(mode, c("model", "all", "raw"))
   format <- match.arg(format)
-  
-  ## guard: users can only request mode = "model" unless enable.dev
+
   if (!isTRUE(enable.dev) && mode != "model")
     stop('When enable.dev = FALSE, only mode = "model" is allowed.')
-  
-  ## If the user wants raw companions, internally build the combined table
+
   internal_mode <- if (isTRUE(include_raw_versions)) "all" else mode
-  
-  ## Canonical long-format table
+
   long_tbl <- private$..results_internal(
     internal_mode, delta, alpha, aggregate, intercept_zero = intercept_zero
   )
-  
-  ## 1) Developer view (unchanged)
+
   if (isTRUE(enable.dev)) {
     if (format == "long") return(long_tbl)
-    
+
     unique_map <- long_tbl %>%
       dplyr::distinct(condition, treatment) %>%
       dplyr::add_count(treatment, name = "n_by_trt") %>%
       dplyr::filter(n_by_trt == 1) %>%
       dplyr::pull(condition, name = treatment)
-    
+
     long_tbl2 <- long_tbl %>%
-      dplyr::mutate(
-        cond_label = ifelse(condition %in% unique_map, treatment, condition)
-      )
-    
+      dplyr::mutate(cond_label = ifelse(condition %in% unique_map, treatment, condition))
+
     metric_cols <- setdiff(
       names(long_tbl2),
       c("lineage", "rep", "condition", "cond_label", "treatment")
     )
-    
+
     out <- purrr::map(metric_cols, \(m)
       long_tbl2 %>%
         dplyr::select(lineage, cond_label, !!rlang::sym(m)) %>%
@@ -188,32 +179,40 @@ results = function(mode                    = "model",
     names(out) <- metric_cols
     return(out)
   }
-  
-  ## 2) User view
-  ## Base mapping (predicted or raw depending on internal_mode)
+
   if (isTRUE(include_raw_versions)) {
-    ## When we built with internal_mode = "all", columns come with *_pred / *_raw
     metric_map <- c(
-      ## primary (predicted/model) fields
+      ## model (pred) — shown under the usual names
       dR_glmnet_resid_pred = "cGR",
       R_pred               = "growth_rate",
       dR_pred              = "centered_growth_rate",
       R_ctrl_pred          = "growth_rate_control",
       dR_ctrl_pred         = "centered_growth_rate_control",
-      ## requested raw companions
+      fr_pred              = "fraction",
+      fr_ctrl_pred         = "fraction_control",
+      fr_t0_pred           = "fraction_t0",
+      dR_glmnet_fit_pred   = "dR_glmnet_fit",
+      ## raw companions
       R_raw                = "growth_rate_raw",
       dR_raw               = "centered_growth_rate_raw",
       R_ctrl_raw           = "growth_rate_control_raw",
       dR_ctrl_raw          = "centered_growth_rate_control_raw",
-      ## other useful fields
-      p_value_pair         = "p_value",
-      fr                   = "fraction",
-      fr_ctrl              = "fraction_control",
-      fr_t0                = "fraction_t0",
-      dR_glmnet_fit_pred   = "dR_glmnet_fit"
+      fr_raw               = "fraction_raw",
+      fr_ctrl_raw          = "fraction_control_raw",
+      fr_t0_raw            = "fraction_t0_raw",
+      ## keep these if they appear with suffixes in "all" mode
+      growth_difference_pred = "growth_difference",
+      FC_pred                = "FC",
+      SR_delta_pred          = "SR_delta",
+      SLR_alpha_pred         = "SLR_alpha",
+      proportional_pred      = "proportional",
+      growth_difference_raw  = "growth_difference_raw",
+      FC_raw                 = "FC_raw",
+      SR_delta_raw           = "SR_delta_raw",
+      SLR_alpha_raw          = "SLR_alpha_raw",
+      proportional_raw       = "proportional_raw"
     )
   } else {
-    ## Legacy mapping (unchanged behavior)
     metric_map <- c(
       dR_glmnet_resid   = "cGR",
       R                 = "growth_rate",
@@ -229,36 +228,33 @@ results = function(mode                    = "model",
       dR_glmnet_fit     = "dR_glmnet_fit"
     )
   }
-  
+
   if (format == "long") {
     core_cols    <- intersect(
       c("lineage", "condition", "treatment", "rep"),
       names(long_tbl)
     )
     keep_metrics <- intersect(names(metric_map), names(long_tbl))
-    
+
     result_main <- long_tbl %>%
       dplyr::select(dplyr::all_of(c(core_cols, keep_metrics))) %>%
       dplyr::rename_with(~ metric_map[.x], .cols = keep_metrics)
-    
+
   } else {  # format == "list"
-    
     unique_map <- long_tbl %>%
       dplyr::distinct(condition, treatment) %>%
       dplyr::add_count(treatment, name = "n_by_trt") %>%
       dplyr::filter(n_by_trt == 1) %>%
       dplyr::pull(condition, name = treatment)
-    
+
     long_tbl2 <- long_tbl %>%
-      dplyr::mutate(
-        cond_label = ifelse(condition %in% unique_map, treatment, condition)
-      )
-    
+      dplyr::mutate(cond_label = ifelse(condition %in% unique_map, treatment, condition))
+
     metric_cols <- setdiff(
       names(long_tbl2),
       c("lineage", "rep", "condition", "cond_label", "treatment")
     )
-    
+
     tmp <- purrr::map(metric_cols, \(m)
       long_tbl2 %>%
         dplyr::select(lineage, cond_label, !!rlang::sym(m)) %>%
@@ -270,12 +266,12 @@ results = function(mode                    = "model",
         as.data.frame()
     )
     names(tmp) <- metric_cols
-    
+
     keep_metrics <- intersect(names(metric_map), names(tmp))
     result_main  <- tmp[keep_metrics]
     names(result_main) <- metric_map[keep_metrics]
   }
-  
+
   list(
     result        = result_main,
     analysis_info = self$analysis_info,
