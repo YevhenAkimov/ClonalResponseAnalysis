@@ -498,19 +498,34 @@ results = function(mode        = "model",
     },
     
     ## ---------- weight-spline helper  ------------------------------------
+    #.fit_w = function(cnt_sub, dR_mat) {
+    #  lm  <- log10(rowMeans(cnt_sub))
+    #  lw  <- log10(1 / matrixStats::rowVars(dR_mat))
+    #  idx <- is.finite(lm) & is.finite(lw)
+      
+      #if (sum(idx) < 4)
+     #   return(setNames(rep(1, length(lm)), names(lm)))
+      
+    #  sp  <- smooth.spline(lm[idx], lw[idx], df = 3)
+    #  ap  <- approx(sp$x, sp$y, xout = lm, rule = 2)
+     # setNames(10**ap$y, names(lm))
+    #},
     .fit_w = function(cnt_sub, dR_mat) {
-      lm  <- log10(rowMeans(cnt_sub))
-      lw  <- log10(1 / matrixStats::rowVars(dR_mat))
-      idx <- is.finite(lm) & is.finite(lw)
-      
-      if (sum(idx) < 4)
-        return(setNames(rep(1, length(lm)), names(lm)))
-      
-      sp  <- smooth.spline(lm[idx], lw[idx], df = 3)
-      ap  <- approx(sp$x, sp$y, xout = lm, rule = 2)
-      setNames(10**ap$y, names(lm))
-    },
+      lm  <- log10(rowMeans(cnt_sub))                            # same as before
+      s   <- 1.4826 * matrixStats::rowMads(dR_mat, na.rm = TRUE) # robust spread
+      s2  <- s * s                                               # variance proxy
+      tau2 <- stats::median(s2[is.finite(s2) & s2 > 0], na.rm = TRUE)
+      if (!is.finite(tau2) || tau2 <= 0) tau2 <- 1e-6            # tiny floor
+      lw  <- log10(1 / (s2 + tau2))                              # precision on log scale
     
+      idx <- is.finite(lm) & is.finite(lw)
+      if (sum(idx) < 4)
+        return(stats::setNames(rep(1, length(lm)), names(lm)))
+    
+      sp  <- stats::smooth.spline(lm[idx], lw[idx], df = 3)      # unchanged smoother
+      ap  <- stats::approx(sp$x, sp$y, xout = lm, rule = 2)
+      stats::setNames(10^ap$y, names(lm))                        # back to weights
+    },
     ## ----------  modelling_data  ---------------------------------
     .prep_model = function(self) {
       dR_long <- private$.calc_dR(
