@@ -10,14 +10,14 @@ The pipeline is designed for the multi-readout bracode-tracing experiments. Typi
 <img width="665" height="309" alt="image" src="https://github.com/user-attachments/assets/1ef05e09-123b-4e7f-9292-08830bf6a84a" />
 
 
-Given barcode counts across samples and a small metadata table, the package estimates **per-lineage growth rates** and quantifies how much each clone is **helped or hurt by a treatment** relative to a matched vehicle control. A weighted mixed-effects model shares information across replicates; an optional constrained-lasso step residualizes each treatment against its vehicle to isolate drug-specific effects from baseline drift.
+Input is a raw barcode counts table for a set of sample. The algorithm uses a weighted mixed-effects model to estimates **per-lineage growth rates** for each treatment. The cGR score is per-lineage perturbation/treatment effect estimated via constrained-lasso step. It residualizes each treatment which isolates drug-specific effects from baseline drift.
 
 Per lineage × condition you get:
 
 - **`growth_rate`** — absolute growth rate under treatment
-- **`centered_growth_rate`** — log-fold-change in lineage fraction per unit time, relative to baseline
+- **`centered_growth_rate`** — growth rate of each lineage minus population growth rate
 - **`growth_difference`** — treatment vs vehicle growth rate difference (negative = sensitive, positive = resistant)
-- **`cGR`** — vehicle-residualized centered growth rate (the cleanest per-lineage drug effect)
+- **`cGR`** — vehicle-residualized centered growth rate (the cleanest per-lineage treatment effect)
 - **`FC`**, **`fraction`**, **`fraction_control`**, **`fraction_t0`**, **`p_value`**
 
 ---
