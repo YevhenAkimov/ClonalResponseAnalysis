@@ -4,6 +4,57 @@
 
 ---
 
+## What it does
+
+The pipeline is designed for the multi-readout bracode-tracing experiments. Typically, it involves the lentiviral DNA barcode delivery and pool expansion. Expanded pool is devided into treatment/control samples.
+<img width="1330" height="618" alt="image" src="https://github.com/user-attachments/assets/1ef05e09-123b-4e7f-9292-08830bf6a84a" />
+
+
+Given barcode counts across samples and a small metadata table, the package estimates **per-lineage growth rates** and quantifies how much each clone is **helped or hurt by a treatment** relative to a matched vehicle control. A weighted mixed-effects model shares information across replicates; an optional constrained-lasso step residualizes each treatment against its vehicle to isolate drug-specific effects from baseline drift.
+
+Per lineage × condition you get:
+
+- **`growth_rate`** — absolute growth rate under treatment
+- **`centered_growth_rate`** — log-fold-change in lineage fraction per unit time, relative to baseline
+- **`growth_difference`** — treatment vs vehicle growth rate difference (negative = sensitive, positive = resistant)
+- **`cGR`** — vehicle-residualized centered growth rate (the cleanest per-lineage drug effect)
+- **`FC`**, **`fraction`**, **`fraction_control`**, **`fraction_t0`**, **`p_value`**
+
+---
+
+## Quick start
+
+```r
+source("ResponseAnalysis.R")
+
+# counts:   matrix — rows = lineages (barcodes), cols = samples
+# metadata: data.frame — see schema below
+
+obj <- ClonalAnalysis$new(metadata, counts)
+obj$fit_model()
+
+res <- obj$results()
+head(res$result)       # per-lineage × condition metrics (long format)
+
+res$analysis_info      # which samples were used as baseline / vehicle per rep
+res$last_meta          # the exact metadata slice used for this fit
+```
+
+For a wide/matrix layout (one column per condition):
+
+```r
+res <- obj$results(format = "list")
+res$result$cGR         # lineages × conditions matrix for cGR
+```
+
+To combine multiple fits (e.g. different drug panels):
+
+```r
+merge_clonal_results(res_A, res_B, id = c("panel_A", "panel_B"))
+```
+
+---
+
 ## Metadata table
 
 To streamline the analysis we use an automatic sample matching via the metadata table.
