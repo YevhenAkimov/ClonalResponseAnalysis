@@ -4,7 +4,7 @@
 
 ---
 
-## 📋 Metadata table
+## Metadata table
 
 The analysis is driven by a single metadata table that pairs each sample with its experimental context. Everything downstream — baseline, vehicle matching, growth rates — is derived from it.
 
@@ -29,7 +29,7 @@ The analysis is driven by a single metadata table that pairs each sample with it
 
 ---
 
-## 🎯 Baseline (t0) and vehicle (t1) selection
+##  Baseline (t0) and vehicle (t1) selection
 
 | Sample type | How it's chosen | Why |
 | :--- | :--- | :--- |
@@ -38,7 +38,7 @@ The analysis is driven by a single metadata table that pairs each sample with it
 
 ---
 
-## 🧪 Minimal example
+##  Minimal example
 
 ```text
 sample_name    treatment   time   rep   fold_expansion
@@ -55,7 +55,7 @@ One baseline + one vehicle + one treatment per replicate. Anything more elaborat
 ---
 
 <details>
-<summary><b>🔧 Narrowing or reshaping a fit without touching metadata</b></summary>
+<summary><b> Narrowing or reshaping a fit without touching metadata</b></summary>
 
 <br>
 
