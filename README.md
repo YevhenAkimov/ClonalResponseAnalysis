@@ -6,11 +6,11 @@
 
 ## Metadata table
 
-To streamline the analysis we use an automatic sample matching via the metadata table. 
+To streamline the analysis we use an automatic sample matching via the metadata table.
 
 ### Required columns
 
-| Column | What it holds | Notes |
+| Column | What | Details |
 | :--- | :--- | :--- |
 | `sample_name` | Unique sample ID | Must **exactly match** a single column name in the counts matrix |
 | `treatment` | `control0`, `control1`, or a drug/condition label | `control0` = baseline, `control1` = vehicle |
