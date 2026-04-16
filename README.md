@@ -7,7 +7,7 @@
 ## What it does
 
 The pipeline is designed for the multi-readout bracode-tracing experiments. Typically, it involves the lentiviral DNA barcode delivery and pool expansion. Expanded pool is devided into treatment/control samples.
-<img width="1330" height="618" alt="image" src="https://github.com/user-attachments/assets/1ef05e09-123b-4e7f-9292-08830bf6a84a" />
+<img width="665" height="309" alt="image" src="https://github.com/user-attachments/assets/1ef05e09-123b-4e7f-9292-08830bf6a84a" />
 
 
 Given barcode counts across samples and a small metadata table, the package estimates **per-lineage growth rates** and quantifies how much each clone is **helped or hurt by a treatment** relative to a matched vehicle control. A weighted mixed-effects model shares information across replicates; an optional constrained-lasso step residualizes each treatment against its vehicle to isolate drug-specific effects from baseline drift.
