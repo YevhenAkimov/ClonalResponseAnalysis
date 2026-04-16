@@ -1,25 +1,23 @@
 # ClonalResponseAnalysis
 
-> Lineage-level growth-rate analysis for clonal/barcode tracing experiments.
+> Growth-rate analysis for clonal/barcode tracing experiments.
 
 ---
 
 ## Metadata table
 
-The analysis is driven by a single metadata table that pairs each sample with its experimental context. Everything downstream — baseline, vehicle matching, growth rates — is derived from it.
+The analysis is driven by a  metadata table. Metadata pairs each sample with its experimental parameters.
 
 ### Required columns
 
 | Column | What it holds | Notes |
 | :--- | :--- | :--- |
-| `sample_name` | Unique sample ID | Must **exactly match** a column in the counts matrix |
+| `sample_name` | Unique sample ID | Must **exactly match** a single column name in the counts matrix |
 | `treatment` | `control0`, `control1`, or a drug/condition label | `control0` = baseline, `control1` = vehicle |
-| `time` | Numeric sampling time | Consistent units across the table |
+| `time` |  Sampling time (numeric) | Consistent units across the table |
 | `rep` | Replicate ID | Groups samples from the same experimental run |
 | `fold_expansion` | Bulk cell-count fold change vs seeding | `> 0`, finite. Skip if you supply `growth_rate` directly |
 
-> [!NOTE]
-> Derived automatically: `condition`, `delta_t`, `growth_rate`, baseline time.
 
 ### Rules
 
