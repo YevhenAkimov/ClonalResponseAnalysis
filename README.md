@@ -6,7 +6,7 @@
 
 ## Metadata table
 
-The analysis is driven by a  metadata table. Metadata pairs each sample with its experimental parameters.
+To streamline the analysis we use an automatic sample matching via the metadata table. 
 
 ### Required columns
 
